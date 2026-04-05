@@ -71,7 +71,11 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	// get user alive
 	newA, err := c.apiClient.GetUserAlive()
 	if err != nil {
-		return err
+		log.WithFields(log.Fields{
+			"tag": c.tag,
+			"err": err,
+		}).Error("Get alive list failed")
+		return nil
 	}
 	if newN != nil {
 		c.info = newN
@@ -87,7 +91,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			log.WithFields(log.Fields{
 				"tag": c.tag,
 				"err": err,
-			}).Error("Delete node failed")
+			}).Panic("Delete node failed")
 			return nil
 		}
 
@@ -99,6 +103,10 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			// Add new Limiter
 			l := limiter.AddLimiter(c.tag, &c.LimitConfig, c.userList, newA)
 			c.limiter = l
+		}
+		// update alive list
+		if newA != nil {
+			c.limiter.AliveList = newA
 		}
 		// Update rule
 		err = c.limiter.UpdateRule(&newN.Rules)
@@ -127,7 +135,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			log.WithFields(log.Fields{
 				"tag": c.tag,
 				"err": err,
-			}).Error("Add node failed")
+			}).Panic("Add node failed")
 			return nil
 		}
 		_, err = c.server.AddUsers(&vCore.AddUsersParams{
@@ -170,7 +178,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	deleted, added := compareUserList(c.userList, newU)
 	if len(deleted) > 0 {
 		// have deleted users
-		err = c.server.DelUsers(deleted, c.tag)
+		err = c.server.DelUsers(deleted, c.tag, c.info)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"tag": c.tag,
